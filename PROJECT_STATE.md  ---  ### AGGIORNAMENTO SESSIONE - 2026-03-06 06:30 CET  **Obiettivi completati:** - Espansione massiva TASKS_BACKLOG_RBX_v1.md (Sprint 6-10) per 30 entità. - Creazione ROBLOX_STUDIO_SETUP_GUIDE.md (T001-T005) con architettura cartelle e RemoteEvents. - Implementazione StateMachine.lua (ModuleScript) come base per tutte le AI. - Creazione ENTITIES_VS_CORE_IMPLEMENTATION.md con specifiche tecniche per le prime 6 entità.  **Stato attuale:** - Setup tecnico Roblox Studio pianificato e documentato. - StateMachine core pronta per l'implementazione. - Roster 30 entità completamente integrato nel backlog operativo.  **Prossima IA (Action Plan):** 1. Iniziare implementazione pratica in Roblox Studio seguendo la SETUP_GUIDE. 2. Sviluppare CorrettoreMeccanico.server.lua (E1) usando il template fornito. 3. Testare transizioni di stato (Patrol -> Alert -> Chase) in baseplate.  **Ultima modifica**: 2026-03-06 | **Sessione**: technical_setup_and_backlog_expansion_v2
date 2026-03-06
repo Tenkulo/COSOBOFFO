@@ -109,3 +109,33 @@ RISKS/BLOCKERS
 - Bilanciamento difficolta: evitare entita troppo facili/impossibili (feedback playtesting)
 
 Ultima modifica: 2026-03-06 05:00 CET | Sessione: entities_roster_expansion_30
+# PROJECT_STATE
+
+PHASE: 2 – HIGH-LEVEL DESIGN (GDD + TECH DESIGN)
+BUILD_TARGET: Roblox (PC + Mobile; Console futuro)
+
+LAST_SESSION_SUMMARY:
+- Definiti REQUIREMENTS_ULTIMATE_2026 v1 (pillars, target, monetizzazione, live-ops).
+- Stesa la lore canon in LORE_CORE_ULTIMATE_2026 v2.0 (Archivio, gilde, entità, archi SCP+Backrooms+Analog).
+- Creati GAME_GDD_v1, ENTITIES_HIERARCHY_AND_LORE_v1, ENTITIES_FULL_ROSTER_v3, TASKS_BACKLOG_RBX_v1 e TECH_DESIGN_RBX_v1 con base per 30 entità e StateMachine core.
+
+NEXT_FOCUS:
+- Rifinire GAME_GDD_v1 sulla Story Mode (path narrativi, capitoli, ruolo delle cutscene).
+- Allineare ENTITIES_HIERARCHY_AND_LORE_v1 alla Story Mode (quali entità in quali capitoli/path).
+- Preparare blocchi di implementazione Roblox (ROBLOX_STUDIO_SETUP_GUIDE + primi script AI) per PHASE 3 – PROTOTYPE.
+
+KEY_FILES:
+- REQUIREMENTS.md: OK (REQUIREMENTS_ULTIMATE_2026.md v1 canon)
+- GAME_GDD.md: DA AGGIORNARE (GAME_GDD_v1.md da espandere su Story Mode)
+- TECH_DESIGN.md: OK (TECH_DESIGN_RBX_v1.md v1 scheletro)
+- ASSET_LIST.md: DA AGGIORNARE (non ancora creato come file dedicato)
+- TASKS_BACKLOG.md: OK (TASKS_BACKLOG_RBX_v1.md v2.0 con 30 entità)
+
+RISKS/BLOCKERS:
+- Complessità alta della lore: rischio incoerenza tra entità, path e Story Mode se non ancorati a una cronologia canon semplice.
+- Tempo di esecuzione in Roblox Studio: rischio di over-engineering di sistemi prima di avere un Vertical Slice giocabile.
+- Gestione dimensione file Markdown: alcuni documenti tenderanno a diventare lunghi; serve lavorare a blocchi coerenti e incollabili.
+
+ENGINE_VERSION:
+- Roblox Studio 2026 (Luau, TeleportService + ReservedServer, DataStoreService + ProfileService, AI basata su ModuleScript StateMachine)
+
