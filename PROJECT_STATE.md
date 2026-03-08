@@ -8,64 +8,39 @@
 | Campo | Valore |
 |---|---|
 | **Fase** | 3 – PROTOTYPE & INTEGRATION |
-| **Status** | 🔵 IN SVILUPPO (VERTICAL SLICE) |
+| **Status** | 🟢 P1 COMPLETE (VERTICAL SLICE CODE) |
 | **Concept** | v1 LOCKED |
 | **Lore Core** | v2.0 LOCKED |
 | **Requirements** | v1 LOCKED |
 | **GDD** | v1 LOCKED |
 | **Entities** | v3.0 LOCKED (30 Entità) |
-| **Story Mode** | v1 LOCKED |
-| **Cinematics** | v1 DESIGNED (TweenService) |
-| **Onboarding** | v1 DESIGNED (Diegetico) |
+| **Vertical Slice** | 90% (Integrazione Map PATH A pendente) |
 | **Tech Stack** | Luau / Roblox Studio 2026 |
 
 ---
 
 ## 📂 FILE CANON DEFINITIVI
-
 1. **README.md**: Overview e mappa della repo.
 2. **REQUIREMENTS_ULTIMATE_2026.md**: Requisiti e target.
 3. **LORE_CORE_ULTIMATE_2026.md**: Mitologia e archi narrativi.
-4. **GAME_GDD_v1.md**: Meccaniche hub, istanze, loot, gilde.
-5. **ENTITIES_FULL_ROSTER_v3.md**: Database 30 entità uniche.
-6. **STORY_MODE_DESIGN_v1.md**: Struttura narrativa in 5 atti.
-7. **CINEMATIC_SYSTEM_v1.md**: Specifiche tecniche cutscenes.
-8. **ONBOARDING_EXPERIENCE_v1.md**: Flusso FTUE diegetico.
-9. **TECH_DESIGN_RBX_v2.0.md**: Architettura Luau (v2).
-10. **LEVEL_DESIGN_PATH_A_v1.md**: Layout Pizzeria Distorta (v1).
-11. **ROBLOX_STUDIO_SETUP_GUIDE.md**: Guida setup ambiente.
-12. **TASKS_BACKLOG_RBX_v1.md**: Sprint operativi (1-10).
+4. **GAMEPLAY_IMPLEMENTED_2026-03-07.md**: Riepilogo tecnico implementation.
+5. **TASKS_BACKLOG_RBX_v1.md**: Tracking sprint.
 
 ---
 
-## 🛠️ PROSSIMA SESSIONE (Phase 3: PROTOTYPE)
-
-### **Obiettivo: Vertical Slice Operativa**
-1. **Setup HUB**: Creazione Place base in Roblox Studio.
-2. **Core AI**: Scripting `StateMachine.lua` (ModuleScript).
-3. **FTUE implementation**: Scripting scena risveglio (Atto I).
-4. **Entity E1**: Sviluppo `CorrettoreMeccanico` (comportamento base).
+## 🛠️ ULTIMO AGGIORNAMENTO (2026-03-08)
+- Implementate AI Entità mancanti: **Silenziatore** (audio-stealth) e **Osservatore** (look-away).
+- Creato **SoundManager.client.lua**: gestisce 3D audio proximity e heartbeat dinamico.
+- Creato **TutorialMode.client.lua**: onboarding diegetico per nuovi Ricorrenti.
+- Validati pattern server-side per look-away (Raycast + Dot product).
 
 ---
 
-## 📦 AGGIORNAMENTO SESSIONE - 2026-03-08 (Sessione 4)
-
-### ✅ COMPLETATO: Update TECH_DESIGN + LEVEL_DESIGN
-**Data**: 2026-03-08 | **Fase**: 3B – VS Integration | **Versione**: 2.0
-**Commit session**: docs: update-docs-v2-block1
-**File implementati**: 
-- `TECH_DESIGN_RBX_v2.0.md` (Integrato moduli gameplay)
-- `LEVEL_DESIGN_PATH_A_v1.md` (Dettagliato layout e spawn)
-
-**Stato**: ✅ Documentazione tecnica e di design allineata al prototipo 2026.
+## 🎯 PROSSIMO PASSO: SPRINT 2 (P2)
+- **Setup Remotes**: Creazione fisica folder Remotes in Studio.
+- **Map Path A**: Finalizzazione PizzeriaDistorta con waypoints.
+- **Multilayer Test**: Validazione logic co-op (2-4 player).
+- **Extraction Logic**: Trigger finale per chiusura run e salvataggio loot.
 
 ---
-
-## 🔴 PROSSIMO PASSO: P2 POLISH + TEST 2-PLAYER
-
-**Target completamento**: 2026-03-12
-**Fase**: 3C – VS Polish & Test
-
----
-
-**Ultima modifica**: 2026-03-08 | **Assistita da**: Comet AI (Sessione 4 completata)
+**Nota per Comet IA**: Tutti i moduli core del gameplay sono ora presenti. La fase successiva richiede integrazione asset fisici in Roblox Studio.
