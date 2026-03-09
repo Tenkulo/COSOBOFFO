@@ -1,152 +1,115 @@
 --!strict
--- HUD.client.lua – COSOBOFFO
--- HUD minimale: stamina bar, obiettivi, heartbeat dinamico, vignettatura
--- Versione: 1.0 | Data: 2026-03-07
--- HUD-less dove possibile (audio/visual invece di numeri)
+-- HUD.client.lua – COSOBOFFO (Enhanced v2.0 - 2026 Standards)
+-- Immersione totale: No-HUD-numeric, camera shake, visual effects, stamina-feedback
+-- Versione: 2.0 | Data: 2026-03-09
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local camera = workspace.CurrentCamera
 
--- RemoteEvents
+-- Remotes
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local StaminaUpdate: RemoteEvent = Remotes:WaitForChild("StaminaUpdate")
 local EntityChaseStart: RemoteEvent = Remotes:WaitForChild("EntityChaseStart")
+local EntityChaseEnd: RemoteEvent = Remotes:WaitForChild("EntityChaseEnd")
 local ObjectiveUpdate: RemoteEvent = Remotes:WaitForChild("ObjectiveUpdate")
 
 -- ============================================================
--- UI SETUP
+-- UI & VISUAL EFFECTS SETUP
 -- ============================================================
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "COSOBOFFO_HUD"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = playerGui
+local screenGui = Instance.new("ScreenGui", playerGui)
+screenGui.Name = "COSOBOFFO_IMMERSE_HUD"
+screenGui.IgnoreGuiInset = true
 
--- Stamina bar (bottom center)
-local staminaFrame = Instance.new("Frame")
-staminaFrame.Name = "StaminaFrame"
-staminaFrame.Size = UDim2.new(0.25, 0, 0.015, 0)
-staminaFrame.Position = UDim2.new(0.375, 0, 0.95, 0)
-staminaFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-staminaFrame.BorderSizePixel = 0
-staminaFrame.Parent = screenGui
-
-local staminaBar = Instance.new("Frame")
-staminaBar.Name = "Bar"
-staminaBar.Size = UDim2.new(1, 0, 1, 0)
-staminaBar.BackgroundColor3 = Color3.fromRGB(80, 200, 240)
-staminaBar.BorderSizePixel = 0
-staminaBar.Parent = staminaFrame
-
--- Obiettivi (top left)
-local objectivesLabel = Instance.new("TextLabel")
-objectivesLabel.Name = "Objectives"
-objectivesLabel.Size = UDim2.new(0.2, 0, 0.1, 0)
-objectivesLabel.Position = UDim2.new(0.02, 0, 0.02, 0)
-objectivesLabel.BackgroundTransparency = 0.5
-objectivesLabel.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-objectivesLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-objectivesLabel.TextScaled = true
-objectivesLabel.Font = Enum.Font.SourceSansBold
-objectivesLabel.Text = "Obiettivi: 0/0"
-objectivesLabel.TextXAlignment = Enum.TextXAlignment.Left
-objectivesLabel.Parent = screenGui
-
--- Vignettatura (fullscreen, invisible di default)
-local vignette = Instance.new("ImageLabel")
-vignette.Name = "Vignette"
+-- Vignette (Immersive shadow)
+local vignette = Instance.new("ImageLabel", screenGui)
 vignette.Size = UDim2.new(1, 0, 1, 0)
-vignette.Position = UDim2.new(0, 0, 0, 0)
 vignette.BackgroundTransparency = 1
-vignette.Image = "rbxassetid://1234567" -- placeholder vignette texture
+vignette.Image = "rbxassetid://1234567" -- Placeholder: vignette.png
 vignette.ImageTransparency = 1
-vignette.ZIndex = 10
-vignette.Parent = screenGui
+vignette.ImageColor3 = Color3.new(0,0,0)
+
+-- Post-Processing
+local colorCorrection = Lighting:FindFirstChild("StaminaCC") or Instance.new("ColorCorrectionEffect", Lighting)
+colorCorrection.Name = "StaminaCC"
+local blurEffect = Lighting:FindFirstChild("StaminaBlur") or Instance.new("BlurEffect", Lighting)
+blurEffect.Name = "StaminaBlur"
+blurEffect.Size = 0
+
+-- Stamina bar (Minimalist line)
+local bar = Instance.new("Frame", screenGui)
+bar.Size = UDim2.new(0.3, 0, 0.005, 0)
+bar.Position = UDim2.new(0.35, 0, 0.97, 0)
+bar.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+bar.BackgroundTransparency = 0.8
+local fill = Instance.new("Frame", bar)
+fill.Size = UDim2.new(1, 0, 1, 0)
+fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 
 -- ============================================================
--- STATO
+-- CORE LOGIC: CAMERA SHAKE & BOBBING
 -- ============================================================
-local currentStamina = 100
-local maxStamina = 100
-local objectivesCompleted = 0
-local objectivesTotal = 0
-local inChase = false
-local heartbeatVolume = 0
+local shakeIntensity = 0
+local function applyCameraShake(dt: number)
+	if shakeIntensity > 0 then
+		local offset = Vector3.new(
+			(math.random() - 0.5) * shakeIntensity,
+			(math.random() - 0.5) * shakeIntensity,
+			0
+		)
+		camera.CFrame = camera.CFrame * CFrame.new(offset)
+		shakeIntensity = math.max(0, shakeIntensity - dt * 2)
+	end
+end
+
+RunService.RenderStepped:Connect(applyCameraShake)
 
 -- ============================================================
--- AGGIORNAMENTI REMOTI
+-- EVENTS
 -- ============================================================
-
 StaminaUpdate.OnClientEvent:Connect(function(stamina: number, maxStam: number)
-	currentStamina = stamina
-	maxStamina = maxStam
-	local pct = currentStamina / maxStamina
-	staminaBar:TweenSize(UDim2.new(pct, 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true)
-
-	-- Colore barra: verde → giallo → rosso
-	if pct > 0.5 then
-		staminaBar.BackgroundColor3 = Color3.fromRGB(80, 200, 240) -- azzurro
-	elseif pct > 0.25 then
-		staminaBar.BackgroundColor3 = Color3.fromRGB(220, 180, 60) -- giallo
+	local pct = stamina / maxStam
+	fill:TweenSize(UDim2.new(pct, 0, 1, 0), "Out", "Quad", 0.1, true)
+	
+	-- Low Stamina Visuals (Desaturation + Blur)
+	if pct < 0.25 then
+		colorCorrection.Saturation = -1 + (pct * 4) -- Svanisce colore
+		blurEffect.Size = (1 - (pct * 4)) * 10
+		fill.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
 	else
-		staminaBar.BackgroundColor3 = Color3.fromRGB(220, 60, 60) -- rosso
+		colorCorrection.Saturation = 0
+		blurEffect.Size = 0
+		fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	end
 end)
 
-EntityChaseStart.OnClientEvent:Connect(function(entity: Model, entityName: string)
-	inChase = true
-	-- Avvia effetti chase: vignette fade in, heartbeat piu' forte
-	local tweenInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-	local goal = { ImageTransparency = 0.3 }
-	TweenService:Create(vignette, tweenInfo, goal):Play()
-	heartbeatVolume = 0.7
-
-	-- Effetto screen shake simulato con leggero distorsione
-	-- (opzionale: implementare shake con Camera.CFrame offset)
+EntityChaseStart.OnClientEvent:Connect(function()
+	shakeIntensity = 0.5
+	TweenService:Create(vignette, TweenInfo.new(1), {ImageTransparency = 0.4}):Play()
+	-- SoundManager.PlayHeartbeat(true) -- Inferred implementation
 end)
 
-ObjectiveUpdate.OnClientEvent:Connect(function(completed: number, total: number)
-	objectivesCompleted = completed
-	objectivesTotal = total
-	objectivesLabel.Text = string.format("Obiettivi: %d/%d", completed, total)
-
-	-- Se completati tutti: feedback visivo
-	if completed >= total then
-		objectivesLabel.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-	end
+EntityChaseEnd.OnClientEvent:Connect(function()
+	TweenService:Create(vignette, TweenInfo.new(2), {ImageTransparency = 1}):Play()
 end)
 
--- ============================================================
--- HEARTBEAT DIEGETICO (audio-driven, senza numeri)
--- ============================================================
--- Placeholder: nella versione finale, collegato a SoundManager che
--- gestisce il suono del battito cardiaco basato su:
--- - vicinanza entita'
--- - stato chase
--- - stamina bassa
-
--- Esempio: ogni N secondi, se inChase, aumenta volume heartbeat
-spawn(function()
-	while true do
-		wait(1)
-		if inChase then
-			-- SoundManager gestirà il playback del battito
-			-- qui solo aggiorniamo stato
-			heartbeatVolume = math.min(1.0, heartbeatVolume + 0.05)
-		else
-			heartbeatVolume = math.max(0, heartbeatVolume - 0.1)
-			-- Rimuovi vignette se chase finito
-			if heartbeatVolume == 0 then
-				inChase = false
-				local tweenInfo = TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-				local goal = { ImageTransparency = 1 }
-				TweenService:Create(vignette, tweenInfo, goal):Play()
-			end
-		end
-	end
+ObjectiveUpdate.OnClientEvent:Connect(function(msg)
+	-- On-screen diegetic hint instead of persistent text
+	local hint = Instance.new("TextLabel", screenGui)
+	hint.Size = UDim2.new(1, 0, 0.1, 0)
+	hint.Position = UDim2.new(0, 0, 0.2, 0)
+	hint.Text = msg
+	hint.BackgroundTransparency = 1
+	hint.TextColor3 = Color3.new(1,1,1)
+	hint.Font = Enum.Font.SpecialElite -- 2026 Retro-Analog vibe
+	hint.TextSize = 24
+	task.delay(3, function() hint:Destroy() end)
 end)
 
-print("[HUD] COSOBOFFO HUD initialized")
+print("[HUD] COSOBOFFO Enhanced HUD ready.")
