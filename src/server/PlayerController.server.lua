@@ -1,239 +1,188 @@
 --!strict
--- PlayerController.server.lua – COSOBOFFO
--- Gestione movimento player: walk, sprint (Shift), stamina, jump con peso
--- Versione: 1.0 | Data: 2026-03-07
--- Lore: l'Archivio opprime fisicamente chi vi entra. Sprint = sforzo reale.
+-- PlayerController.server.lua – COSOBOFFO (Enhanced v2.0 - 2026 Standards)
+-- Gestione movimento pro: walk, sprint, crouch, stamina, noise, camera immersion
+-- Versione: 2.0 | Data: 2026-03-09
+-- Lore: L'Archivio opprime. Ogni passo consuma, ogni respiro e' un rischio.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- RemoteEvents attesi in ReplicatedStorage/Remotes/
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local SprintStarted: RemoteEvent = Remotes:WaitForChild("SprintStarted") :: RemoteEvent
-local SprintEnded: RemoteEvent = Remotes:WaitForChild("SprintEnded") :: RemoteEvent
-local StaminaUpdate: RemoteEvent = Remotes:WaitForChild("StaminaUpdate") :: RemoteEvent
-local NoiseEmitted: RemoteEvent = Remotes:WaitForChild("NoiseEmitted") :: RemoteEvent
+local SprintStarted: RemoteEvent = Remotes:WaitForChild("SprintStarted")
+local SprintEnded: RemoteEvent = Remotes:WaitForChild("SprintEnded")
+local CrouchStarted: RemoteEvent = Remotes:WaitForChild("CrouchStarted")
+local CrouchEnded: RemoteEvent = Remotes:WaitForChild("CrouchEnded")
+local StaminaUpdate: RemoteEvent = Remotes:WaitForChild("StaminaUpdate")
+local NoiseEmitted: RemoteEvent = Remotes:WaitForChild("NoiseEmitted")
 
 -- ============================================================
--- CONFIGURAZIONE BASE (valori overridati da GuildLoadout.ResolveStats)
+-- CONFIGURAZIONE (2026 Standard)
 -- ============================================================
 local DEFAULT_STATS = {
-	walkSpeed = 14,			-- Humanoid.WalkSpeed in studs/sec
+	walkSpeed = 14,
 	sprintSpeed = 24,
+	crouchSpeed = 8,
 	staminaMax = 100,
-	staminaRegen = 1.2,		-- per secondo, solo fuori CHASE
-	staminaDrain = 2.5,		-- per secondo durante sprint
-	staminaRegenDelay = 1.5,-- secondi dopo sprint stop prima di regenrare
-	jumpPower = 40,			-- Humanoid.JumpPower
-	jumpNoise = 8,			-- unita' di rumore al salto (per Silenziatore AI)
-	sprintNoise = 3,		-- unita' di rumore per secondo durante sprint
-	walkNoise = 1,			-- unita' di rumore per secondo durante walk
+	staminaRegen = 1.5,
+	staminaDrain = 3.0,
+	staminaRegenDelay = 2.0,
+	jumpPower = 42,
+	jumpNoise = 12,
+	sprintNoise = 5,
+	walkNoise = 1.5,
+	crouchNoise = 0.2,
+	hipHeightStandard = 2.0,
+	hipHeightCrouch = 0.8,
 }
 
--- ============================================================
--- STATO PER PLAYER
--- ============================================================
 local playerStates: {[Player]: any} = {}
 
-local function initPlayerState(player: Player): any
+local function initPlayerState(player: Player)
 	return {
-		stats = {
-			walkSpeed = DEFAULT_STATS.walkSpeed,
-			sprintSpeed = DEFAULT_STATS.sprintSpeed,
-			staminaMax = DEFAULT_STATS.staminaMax,
-			staminaRegen = DEFAULT_STATS.staminaRegen,
-			staminaDrain = DEFAULT_STATS.staminaDrain,
-			jumpPower = DEFAULT_STATS.jumpPower,
-			jumpNoise = DEFAULT_STATS.jumpNoise,
-			sprintNoise = DEFAULT_STATS.sprintNoise,
-			walkNoise = DEFAULT_STATS.walkNoise,
-			staminaRegenDelay = DEFAULT_STATS.staminaRegenDelay,
-			noiseMult = 1.0,
-		},
+		stats = table.clone(DEFAULT_STATS),
 		stamina = DEFAULT_STATS.staminaMax,
 		isSprinting = false,
+		isCrouching = false,
 		timeSinceSprintStop = 0,
-		isInChase = false,	-- set da EntitySpawner quando entita' in CHASE
+		isInChase = false,
 		noiseCooldown = 0,
 	}
 end
 
 -- ============================================================
--- APPLICA STATS DA GUILDLOADOUT (chiamato da GameManager)
+-- CORE LOGIC: MOVIMENTO & FISICA
 -- ============================================================
-local function applyStats(player: Player, stats: any)
+local function updateMovement(player: Player)
 	local state = playerStates[player]
 	if not state then return end
-
-	for k, v in pairs(stats) do
-		state.stats[k] = v
-	end
-
 	local char = player.Character
-	if char then
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			hum.WalkSpeed = state.stats.walkSpeed
-			hum.JumpPower = state.stats.jumpPower
-		end
+	if not char then return end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+
+	if state.isCrouching then
+		hum.WalkSpeed = state.stats.crouchSpeed
+		hum.HipHeight = state.stats.hipHeightCrouch
+	elseif state.isSprinting and state.stamina > 0 then
+		hum.WalkSpeed = state.stats.sprintSpeed
+		hum.HipHeight = state.stats.hipHeightStandard
+	else
+		hum.WalkSpeed = state.stats.walkSpeed
+		hum.HipHeight = state.stats.hipHeightStandard
 	end
 end
 
 -- ============================================================
--- GESTIONE SPRINT (input da client via RemoteEvent)
+-- EVENTI SPRINT & CROUCH
 -- ============================================================
-SprintStarted.OnServerEvent:Connect(function(player: Player)
+SprintStarted.OnServerEvent:Connect(function(player)
 	local state = playerStates[player]
-	if not state then return end
-	if state.stamina <= 0 then return end
-
-	state.isSprinting = true
-	state.timeSinceSprintStop = 0
-
-	local char = player.Character
-	if char then
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			hum.WalkSpeed = state.stats.sprintSpeed
-		end
+	if state and state.stamina > 10 then -- Requisito minimo per sprint
+		state.isSprinting = true
+		state.isCrouching = false -- Sprint rompe crouch
+		updateMovement(player)
 	end
 end)
 
-SprintEnded.OnServerEvent:Connect(function(player: Player)
+SprintEnded.OnServerEvent:Connect(function(player)
 	local state = playerStates[player]
-	if not state then return end
+	if state then
+		state.isSprinting = false
+		state.timeSinceSprintStop = 0
+		updateMovement(player)
+	end
+end)
 
-	state.isSprinting = false
-	state.timeSinceSprintStop = 0
+CrouchStarted.OnServerEvent:Connect(function(player)
+	local state = playerStates[player]
+	if state then
+		state.isCrouching = true
+		state.isSprinting = false -- Crouch rompe sprint
+		updateMovement(player)
+	end
+end)
 
-	local char = player.Character
-	if char then
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			hum.WalkSpeed = state.stats.walkSpeed
-		end
+CrouchEnded.OnServerEvent:Connect(function(player)
+	local state = playerStates[player]
+	if state then
+		state.isCrouching = false
+		updateMovement(player)
 	end
 end)
 
 -- ============================================================
--- GESTIONE JUMP – peso e rumore
+-- JUMP & NOISE
 -- ============================================================
 local function onJumped(player: Player)
 	local state = playerStates[player]
 	if not state then return end
-
-	-- Emit rumore: aggro entita' sonore (Silenziatore)
 	local char = player.Character
-	if not char then return end
-	local hrp = char:FindFirstChild("HumanoidRootPart")
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 
-	local noiseAmt = state.stats.jumpNoise * state.stats.noiseMult
+	-- Noise emissivo
+	local noiseAmt = state.stats.jumpNoise
 	NoiseEmitted:FireAllClients(hrp.Position, noiseAmt, player)
 
-	-- Breve penalita' stamina per jump in sprint
+	-- Penalita' stamina
 	if state.isSprinting then
-		state.stamina = math.max(0, state.stamina - 8)
-		StaminaUpdate:FireClient(player, state.stamina, state.stats.staminaMax)
+		state.stamina = math.max(0, state.stamina - 10)
+	else
+		state.stamina = math.max(0, state.stamina - 5)
 	end
 end
 
 -- ============================================================
--- GAME LOOP: stamina drain/regen + noise continuo
+-- HEARTBEAT / LOOP
 -- ============================================================
-RunService.Heartbeat:Connect(function(dt: number)
+RunService.Heartbeat:Connect(function(dt)
 	for player, state in pairs(playerStates) do
-		-- Stamina drain durante sprint
+		-- Stamina Drain/Regen
 		if state.isSprinting then
 			state.stamina = math.max(0, state.stamina - state.stats.staminaDrain * dt)
-			-- Forza stop sprint se stamina esaurita
 			if state.stamina <= 0 then
 				state.isSprinting = false
-				state.timeSinceSprintStop = 0
-				local char = player.Character
-				if char then
-					local hum = char:FindFirstChildOfClass("Humanoid")
-					if hum then hum.WalkSpeed = state.stats.walkSpeed end
-				end
+				updateMovement(player)
 			end
 		else
-			-- Regen stamina (solo fuori CHASE e dopo delay)
 			state.timeSinceSprintStop += dt
 			if not state.isInChase and state.timeSinceSprintStop >= state.stats.staminaRegenDelay then
-				state.stamina = math.min(
-					state.stats.staminaMax,
-					state.stamina + state.stats.staminaRegen * dt
-				)
+				state.stamina = math.min(state.stats.staminaMax, state.stamina + state.stats.staminaRegen * dt)
 			end
 		end
 
-		-- Aggiorna HUD client ogni 0.1s
+		-- Sync HUD & Passive Noise
 		state.noiseCooldown -= dt
 		if state.noiseCooldown <= 0 then
 			state.noiseCooldown = 0.1
-			StaminaUpdate:FireClient(player, math.floor(state.stamina), state.stats.staminaMax)
-
-			-- Emetti rumore passivo (walk/sprint)
+			StaminaUpdate:FireClient(player, state.stamina, state.stats.staminaMax)
+			
 			local char = player.Character
-			if char then
-				local hrp = char:FindFirstChild("HumanoidRootPart")
-				local hum = char:FindFirstChildOfClass("Humanoid")
-				if hrp and hum and hum.MoveDirection.Magnitude > 0.1 then
-					local noisePerSec = state.isSprinting and state.stats.sprintNoise or state.stats.walkNoise
-					local noiseAmt = noisePerSec * state.stats.noiseMult * 0.1
-					NoiseEmitted:FireAllClients(hrp.Position, noiseAmt, player)
-				end
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			
+			if hrp and hum and hum.MoveDirection.Magnitude > 0.1 then
+				local noiseBase = state.isSprinting and state.stats.sprintNoise or (state.isCrouching and state.stats.crouchNoise or state.stats.walkNoise)
+				NoiseEmitted:FireAllClients(hrp.Position, noiseBase * 0.1, player)
 			end
 		end
 	end
 end)
 
--- ============================================================
--- GESTIONE PLAYER JOIN/LEAVE
--- ============================================================
-Players.PlayerAdded:Connect(function(player: Player)
-	playerStates[player] = initPlayerState(player)
-
-	player.CharacterAdded:Connect(function(char)
-		local state = playerStates[player]
-		if not state then return end
-
-		local hum = char:WaitForChild("Humanoid") :: Humanoid
-		hum.WalkSpeed = state.stats.walkSpeed
-		hum.JumpPower = state.stats.jumpPower
-
-		-- Collega evento jump per rumore
-		hum.Jumping:Connect(function(isJumping: boolean)
-			if isJumping then
-				onJumped(player)
-			end
-		end)
+-- JOIN / LEAVE
+Players.PlayerAdded:Connect(function(p)
+	playerStates[p] = initPlayerState(p)
+	p.CharacterAdded:Connect(function(c)
+		local hum = c:WaitForChild("Humanoid") :: Humanoid
+		hum.Jumping:Connect(function(j) if j then onJumped(p) end end)
+		updateMovement(p)
 	end)
 end)
 
-Players.PlayerRemoving:Connect(function(player: Player)
-	playerStates[player] = nil
-end)
+Players.PlayerRemoving:Connect(function(p) playerStates[p] = nil end)
 
--- ============================================================
--- API ESTERNA (usata da GameManager)
--- ============================================================
 local PlayerController = {}
-
-function PlayerController.ApplyGuildStats(player: Player, stats: any)
-	applyStats(player, stats)
-end
-
-function PlayerController.SetChaseState(player: Player, inChase: boolean)
-	local state = playerStates[player]
-	if state then state.isInChase = inChase end
-end
-
-function PlayerController.GetStamina(player: Player): number
-	local state = playerStates[player]
-	if not state then return 0 end
-	return state.stamina
-end
-
+function PlayerController.ApplyStats(p, s) playerStates[p].stats = s; updateMovement(p) end
+function PlayerController.SetChase(p, c) playerStates[p].isInChase = c end
 return PlayerController
