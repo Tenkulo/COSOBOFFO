@@ -8,14 +8,14 @@
 | Campo | Valore |
 |---|---|
 | **Fase** | 3 – PROTOTYPE & INTEGRATION |
-| **Status** | 🔵 IN SVILUPPO (MAP INTEGRATION) |
+| **Status** | 🟢 VS PROTOTYPE READY |
 | **Concept** | v1 LOCKED |
 | **Lore Core** | v2.0 LOCKED |
 | **Requirements** | v1 LOCKED |
 | **GDD** | v1 LOCKED |
 | **Entities** | v3.0 LOCKED (30 Entità) |
 | **Visual Design** | v1.0 LOCKED |
-| **Vertical Slice** | 95% (Path A Integrato) |
+| **Vertical Slice** | 100% (Path A & B Integrati) |
 | **Tech Stack** | Luau / Roblox Studio 2026 |
 
 ## 📂 FILE CANON DEFINITIVI
@@ -33,6 +33,11 @@
 
 ## 📦 AGGIORNAMENTO SESSIONE - 2026-03-09 (Sessione 4)
 
+### ✅ COMPLETATO: MAP PATH B INTEGRATION
+**Data**: 2026-03-09 | **Fase**: 3 – PROTOTYPE | **Versione**: 1.2
+**Commit session**: docs: create MAP_PATH_B_INTEGRATION_v1.md + update RoomGraph.lua
+**Dettagli**: Integrata la Fabbrica degli Scarti (Path B) nel sistema di generazione procedurale. Definita la meccanica Stealth Audio e mappatura stanze assembly/generator.
+
 ### ✅ COMPLETATO: MAP PATH A INTEGRATION
 **Data**: 2026-03-09 | **Fase**: 3 – PROTOTYPE | **Versione**: 1.1
 **Commit session**: docs: create MAP_PATH_A_INTEGRATION_v1.md + update RoomGraph.lua
@@ -43,7 +48,7 @@
 **Commit session**: docs: create VISUAL_DESIGN_v1
 **Dettagli**: Creato il documento di design visivo con specifiche numeriche per i 5 Path (Lighting), preset di post-processing (Normal/Chase/Critical), HUD language mobile-first e visual specs per le entità core.
 
-## 🔴 PROSSIMO PASSO: MAP PATH B INTEGRATION
-**Target completamento**: 2026-03-15 **Fase**: 3C – VS Polish & Test
+## 🔴 PROSSIMO PASSO: MAP PATH C INTEGRATION
+**Target completamento**: 2026-03-20 **Fase**: 4 – BETA EXPANSION
 
-**Ultima modifica**: 2026-03-09 | **Assistita da**: Comet AI (Sessione 4 in corso)
+**Ultima modifica**: 2026-03-09 | **Assistita da**: Comet AI (Sessione 4 completata)
